@@ -32,7 +32,7 @@
 
 					let line = '';
 					for(let prop in item){
-						line += `"${item[prop].replace(/\,/g,"\\,")}",`
+						line += `"${item[prop].replace(/\,/g,"\\,").replace(/\n/g,"\\n")}",`;
 					}
 					output.value += line.substring(0,line.length-1);
 				}
@@ -79,17 +79,14 @@
 			let blob;
 			if(obj instanceof Array){
 				let text = "";
-				document.querySelector("#DTot").innerText = obj.length;
-				document.querySelector("#DCur").innerText = 0;
 				for(let line of obj){
 					if(typeof line === 'object'){
 						for(let prop in line){
-							text += `${line[prop]},`;
+							text += `${line[prop].replace(/\n/g,"\\n")},`;
 						}
 						text = text.substring(0,text.length-1);
 					}
 					text += "\n";
-					document.querySelector("#DCur").innerText = parseInt(document.querySelector("#DCur").innerText) + 1;
 				}
 				blob = new Blob([text], {type:'text/csv'});
 				a.href = URL.createObjectURL(blob);
