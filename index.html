@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Facebook Comment Scrapper</title>
+</head>
+<body>
+	<div>
+		<label for="postId">Post URL/ID: </label><input id="postId" style="width: 500px;" type="text" name="postId" placeholder="Facebook Post URL/ID" value="617432085309261"><br>
+		<font>When done:</font><br>
+		<input id="csv" type="checkbox" name="csv"><label for="csv">Download CSV</label>&nbsp;
+		<input id="json" type="checkbox" name="json"><label for="json">Download JSON</label><br>
+		<button onclick="scrapFacebook()">Scrap Facebook!</button><br>
+		<textarea id="Output" cols=100 rows=200></textarea>
+	</div>
+	<script type="text/javascript">
+		const output = document.querySelector('textarea#Output');
+
+		const app_id = "2264637407115035";
+		const app_secret = "88d73547a557e6488c13dac4c8071900";
+
+		function scrap(app_id, app_secret, postID, nextPage=null, results=[]){
+			return fetch(nextPage === null ? `https://graph.facebook.com/v3.2/${postID}/comments?` + 
+				`access_token=${app_id}|${app_secret}` : nextPage)
+			.then(res=>res.json())
+			.then(obj=>{
+				if(typeof obj.error !== 'undefined'){
+					throw new Error(`Code: ${obj.error.code}, \nMessage: ${obj.error.message}`);
+				}
+
+				for(let item of obj.data){
+					results.push(item);
+
+					let line = '';
+					for(let prop in item){
+						line += `"${item[prop].replace(/\,/g,"\\,")}",`
+					}
+					output.value += line.substring(0,line.length-1);
+				}
+				return Promise.resolve([obj.paging.next]);
+			})
+			.then(([next])=>{
+				console.log(`Got ${results.length} items`);
+				if(typeof next === 'undefined'){
+					return Promise.resolve(results);
+				}else{
+					return scrap(app_id, app_secret, postID, next, results);
+				}
+			})
+		}
+
+		function scrapFacebook(){
+			output.value = '';
+
+			const post = document.querySelector("input#postId").value;
+			let postId;
+			if(post.indexOf('/') < 0) {
+				postId = post;
+			}else{
+				const match = post.match(/(posts|videos)\/((?:(?!\?).)*)/g)[0];
+				const pos = match.indexOf('/');
+			 	postId = match.substring(pos);
+			}
+
+			scrap(app_id, app_secret, postId)
+			.then(ProcessData)
+			.catch(alert);
+		}
+
+		function DownloadJSON(obj){
+			let a = document.createElement('a');
+			const blob = new Blob([JSON.stringify(obj)], {type:'application/json'});
+			a.href = URL.createObjectURL(blob);
+			a.download = "Result.json";
+			a.click();
+		}
+
+		function DownloadCSV(obj){
+			let a = document.createElement('a');
+			let blob;
+			if(obj instanceof Array){
+				let text = "";
+				document.querySelector("#DTot").innerText = obj.length;
+				document.querySelector("#DCur").innerText = 0;
+				for(let line of obj){
+					if(typeof line === 'object'){
+						for(let prop in line){
+							text += `${line[prop]},`;
+						}
+						text = text.substring(0,text.length-1);
+					}
+					text += "\n";
+					document.querySelector("#DCur").innerText = parseInt(document.querySelector("#DCur").innerText) + 1;
+				}
+				blob = new Blob([text], {type:'text/csv'});
+				a.href = URL.createObjectURL(blob);
+				a.download = "Result.csv";
+				a.click();
+			}
+		}
+
+		function ProcessData(results){
+			const csv = document.querySelector("input[type=checkbox]#csv");
+			const json = document.querySelector("input[type=checkbox]#json");
+
+			if(csv && csv.checked) DownloadCSV(results);
+			if(json && json.checked) DownloadJSON(results);
+
+			console.log(`Done! Got ${results.length} items`);
+
+			return Promise.resolve(results);
+		}
+	</script>
+</body>
+</html>
